@@ -1,0 +1,947 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - ระบบเช็คชื่อนักเรียนอัจฉริยะ</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Custom styles -->
+    <style>
+        body { font-family: 'Inter', 'Kanit', sans-serif; }
+        .loader { border-top-color: #3b82f6; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .custom-scrollbar::-webkit-scrollbar { width: 8px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #1e293b; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #475569; border-radius: 10px; }
+        .dark .custom-scrollbar::-webkit-scrollbar-track { background: #1e293b; }
+        .dark .custom-scrollbar::-webkit-scrollbar-thumb { background: #475569; }
+        .animate-fade-in { animation: fadeIn 0.5s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen">
+
+    <!-- Main Container -->
+    <div class="container mx-auto p-4 md:p-6">
+
+        <!-- Header -->
+        <header class="bg-gray-800 rounded-lg shadow-md p-4 mb-6 flex flex-col sm:flex-row justify-between items-center gap-4">
+             <div class="flex items-center space-x-3">
+                <i data-lucide="layout-dashboard" class="text-blue-500 w-8 h-8"></i>
+                <h1 class="text-xl md:text-2xl font-bold text-gray-100">Admin Dashboard</h1>
+            </div>
+            <div class="flex items-center gap-2">
+                <nav class="flex items-center flex-wrap justify-center space-x-1 md:space-x-2 bg-gray-700 p-1 rounded-lg">
+                    <button onclick="switchTab('dashboard')" id="tab-dashboard" class="px-3 py-1.5 text-sm font-medium rounded-md">📊 Dashboard</button>
+                    <button onclick="switchTab('manage')" id="tab-manage" class="px-3 py-1.5 text-sm font-medium rounded-md">👥 จัดการข้อมูล</button>
+                    <button onclick="switchTab('settings')" id="tab-settings" class="px-3 py-1.5 text-sm font-medium rounded-md">⚙️ ตั้งค่า</button>
+                </nav>
+                <button onclick="toggleTheme()" type="button" class="text-gray-400 hover:bg-gray-700 rounded-lg text-sm p-2.5">
+                    <i data-lucide="sun" id="theme-icon-sun" class="hidden w-5 h-5"></i>
+                    <i data-lucide="moon" id="theme-icon-moon" class="w-5 h-5"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Dynamic Content Area -->
+        <main id="main-content">
+            <!-- Dashboard Tab -->
+            <div id="content-dashboard" class="tab-content space-y-6">
+                <div id="dashboard-password-section" class="bg-gray-800 p-6 rounded-lg shadow-md text-center">
+                    <h2 class="text-xl font-bold mb-4">เข้าถึง Dashboard</h2>
+                    <p class="text-gray-400 mb-4">กรุณากรอกรหัสผ่านเพื่อเข้าถึง Dashboard</p>
+                    <div class="max-w-md mx-auto">
+                        <input type="password" id="dashboard-password" placeholder="กรอกรหัสผ่าน" class="w-full border-gray-600 bg-gray-700 rounded-lg p-3 mb-4 text-gray-100">
+                        <button onclick="verifyDashboardPassword()" class="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 w-full">ยืนยันรหัสผ่าน</button>
+                    </div>
+                </div>
+                
+                <div id="dashboard-content" class="hidden">
+                    <div class="bg-gray-800 p-4 sm:p-6 rounded-lg shadow-md mb-6">
+                         <div class="flex flex-col sm:flex-row items-center justify-between mb-4 gap-4">
+                            <h2 class="text-lg font-semibold text-gray-100">ภาพรวมและรายชื่อนักเรียน</h2>
+                            <input type="date" id="dashboard-date" class="border rounded-lg p-2 w-full sm:w-auto bg-gray-700 text-gray-100 border-gray-600">
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 text-center">
+                             <div class="bg-blue-700 p-4 rounded-lg"><h3 class="text-gray-200">มาเรียน</h3><p id="stat-present" class="text-3xl font-bold text-blue-200">0</p></div>
+                            <div class="bg-yellow-700 p-4 rounded-lg"><h3 class="text-gray-200">มาสาย</h3><p id="stat-late" class="text-3xl font-bold text-yellow-200">0</p></div>
+                            <div class="bg-red-700 p-4 rounded-lg"><h3 class="text-gray-200">ขาด/ลา</h3><p id="stat-absent" class="text-3xl font-bold text-red-200">0</p></div>
+                        </div>
+
+                        <div class="grid grid-cols-1 lg:grid-cols-5 gap-6 mt-6">
+                            <div class="lg:col-span-2 bg-gray-700 p-4 rounded-lg">
+                                <h3 class="font-semibold mb-2 text-center text-gray-100">สรุปการเข้าเรียน</h3>
+                                <div class="max-w-[250px] mx-auto">
+                                     <canvas id="attendance-pie-chart"></canvas>
+                                </div>
+                            </div>
+                            <div class="lg:col-span-3 bg-gray-700 p-4 rounded-lg">
+                                <h3 class="font-semibold mb-2 text-center text-gray-100">จำนวนการเช็คชื่อรายชั่วโมง</h3>
+                                <div>
+                                    <canvas id="attendance-bar-chart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-gray-800 p-4 sm:p-6 rounded-lg shadow-md">
+                        <h3 class="font-semibold mb-4 text-gray-100">รายชื่อนักเรียนในระบบ</h3>
+                        <div id="student-roster-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 max-h-[60vh] overflow-y-auto custom-scrollbar pr-2"></div>
+                         <div id="roster-loading" class="text-center py-8"><div class="loader w-12 h-12 rounded-full border-4 border-gray-600 mx-auto"></div><p class="mt-4 text-gray-400">กำลังโหลดข้อมูลนักเรียน...</p></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Manage Students Tab -->
+            <div id="content-manage" class="tab-content hidden">
+                <div id="manage-password-section" class="bg-gray-800 p-6 rounded-lg shadow-md text-center">
+                    <h2 class="text-xl font-bold mb-4">เข้าถึงการจัดการข้อมูล</h2>
+                    <p class="text-gray-400 mb-4">กรุณากรอกรหัสผ่านเพื่อเข้าถึงการจัดการข้อมูลนักเรียน</p>
+                    <div class="max-w-md mx-auto">
+                        <input type="password" id="manage-password" placeholder="กรอกรหัสผ่าน" class="w-full border-gray-600 bg-gray-700 rounded-lg p-3 mb-4 text-gray-100">
+                        <button onclick="verifyManagePassword()" class="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 w-full">ยืนยันรหัสผ่าน</button>
+                    </div>
+                </div>
+                <div id="manage-content" class="hidden">
+                    <div class="bg-gray-800 p-4 sm:p-6 rounded-lg shadow-md">
+                        <div class="flex justify-between items-center mb-4">
+                            <h2 class="text-lg font-semibold text-gray-100">👥 จัดการข้อมูลนักเรียน</h2>
+                            <button class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500" onclick="openStudentModal()"><i data-lucide="plus" class="w-5 h-5 mr-2"></i> เพิ่มนักเรียน</button>
+                        </div>
+                        <div id="studentAlert" class="p-3 rounded-lg text-sm mb-4 hidden" role="alert"></div>
+                        <div class="overflow-x-auto custom-scrollbar">
+                            <table class="min-w-full divide-y divide-gray-700">
+                                <thead class="bg-gray-700">
+                                    <tr>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">เลขประจำตัว</th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">ชื่อ-นามสกุล</th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">ชั้นปี</th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">สถานะ</th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">วันที่ลงทะเบียน</th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">จัดการ</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="studentTableBody" class="bg-gray-800 divide-y divide-gray-700">
+                                    <tr><td colspan="6" class="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-400">กำลังโหลดข้อมูล...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="bg-gray-800 p-4 sm:p-6 rounded-lg shadow-md mt-6">
+                        <h2 class="text-lg font-semibold text-gray-100 mb-4">📋 ข้อมูลการเช็คชื่อ</h2>
+                        <div class="flex flex-wrap gap-4 mb-4">
+                            <div class="flex-1 min-w-[150px]">
+                                <label for="attendanceDate" class="block text-sm font-medium text-gray-300">เลือกวันที่</label>
+                                <input type="date" id="attendanceDate" onchange="loadAttendanceData()" class="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-gray-100 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2">
+                            </div>
+                            <div class="flex-1 min-w-[150px]">
+                                <label for="attendanceClass" class="block text-sm font-medium text-gray-300">ชั้นปี</label>
+                                <select id="attendanceClass" onchange="loadAttendanceData()" class="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-gray-100 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2">
+                                    <option value="">ทั้งหมด</option>
+                                    <option value="ปวช.1">ปวช.1</option>
+                                    <option value="ปวช.2">ปวช.2</option>
+                                    <option value="ปวช.3">ปวช.3</option>
+                                    <option value="ปวส.1">ปวส.1</option>
+                                    <option value="ปวส.2">ปวส.2</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="overflow-x-auto custom-scrollbar">
+                            <table class="min-w-full divide-y divide-gray-700">
+                                <thead class="bg-gray-700">
+                                    <tr>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">เลขประจำตัว</th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">ชื่อ-นามสกุล</th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">ชั้นปี</th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">วันที่</th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">เวลา</th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">สถานะ</th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">ตำแหน่ง</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="attendanceTableBody" class="bg-gray-800 divide-y divide-gray-700">
+                                    <tr><td colspan="7" class="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-400">กำลังโหลดข้อมูล...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Settings Tab -->
+            <div id="content-settings" class="tab-content hidden">
+                <div class="bg-gray-800 p-4 sm:p-6 rounded-lg shadow-md">
+                    <h2 class="text-lg font-semibold text-gray-100 mb-4">⚙️ ตั้งค่าระบบ</h2>
+                    <div id="settingsAlert" class="p-3 rounded-lg text-sm mb-4 hidden" role="alert"></div>
+                    
+                    <div class="mb-6">
+                        <h3 class="text-md font-semibold text-gray-100 mb-3">🔗 Google Apps Script URL</h3>
+                        <div class="flex gap-2">
+                            <input type="text" id="gasUrl" placeholder="https://script.google.com/..." class="flex-1 rounded-md border-gray-600 bg-gray-700 text-gray-100 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2">
+                            <button class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500" onclick="saveGasUrl()"><i data-lucide="save" class="w-5 h-5 mr-2"></i> บันทึก URL</button>
+                        </div>
+                    </div>
+
+                    <div class="mb-6">
+                        <h3 class="text-md font-semibold text-gray-100 mb-3">🗑️ จัดการข้อมูล</h3>
+                        <p class="text-gray-400 mb-3">ลบข้อมูลการเช็คชื่อทั้งหมด (ข้อมูลนักเรียนจะไม่ถูกลบ)</p>
+                        <button class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500" onclick="clearAttendanceData()"><i data-lucide="trash-2" class="w-5 h-5 mr-2"></i> ลบข้อมูลการเช็คชื่อ</button>
+                    </div>
+
+                    <div>
+                        <h3 class="text-md font-semibold text-gray-100 mb-3">🔄 รีเซ็ตการลงทะเบียน</h3>
+                        <p class="text-gray-400 mb-3">รีเซ็ตสถานะการลงทะเบียนของนักเรียนทั้งหมด</p>
+                        <button class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-gray-100 bg-gray-600 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500" onclick="resetRegistrations()"><i data-lucide="rotate-ccw" class="w-5 h-5 mr-2"></i> รีเซ็ตการลงทะเบียน</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Student Modal -->
+    <div id="studentModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden flex items-center justify-center p-4 z-50">
+        <div class="relative p-8 bg-gray-800 w-full max-w-2xl mx-auto rounded-lg shadow-lg animate-fade-in">
+            <div class="flex justify-between items-center mb-6">
+                <h2 id="modalTitle" class="text-xl font-bold text-gray-100">เพิ่มนักเรียน</h2>
+                <button type="button" class="text-gray-400 hover:text-gray-300" onclick="closeStudentModal()">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+            </div>
+            
+            <form id="studentForm" class="space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="space-y-4">
+                        <div>
+                            <label for="modalStudentId" class="block text-sm font-medium text-gray-300">เลขประจำตัว</label>
+                            <input type="text" id="modalStudentId" required class="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-gray-100 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-3">
+                        </div>
+                        <div>
+                            <label for="modalStudentName" class="block text-sm font-medium text-gray-300">ชื่อ-นามสกุล</label>
+                            <input type="text" id="modalStudentName" required class="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-gray-100 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-3">
+                        </div>
+                        <div>
+                            <label for="modalStudentClass" class="block text-sm font-medium text-gray-300">ชั้นปี</label>
+                            <select id="modalStudentClass" required class="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-gray-100 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-3">
+                                <option value="">-- เลือกชั้นปี --</option>
+                                <option value="ปวช.1">ปวช.1</option>
+                                <option value="ปวช.2">ปวช.2</option>
+                                <option value="ปวช.3">ปวช.3</option>
+                                <option value="ปวส.1">ปวส.1</option>
+                                <option value="ปวส.2">ปวส.2</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="space-y-4">
+                        <div class="text-center">
+                            <label class="block text-sm font-medium text-gray-300 mb-2">รูปภาพนักเรียน</label>
+                            
+                            <!-- Tab Navigation -->
+                            <div class="flex border-b border-gray-600 mb-4">
+                                <button type="button" id="tab-btn-camera" onclick="switchImageInput('camera')" class="flex-1 py-2 text-center font-medium border-b-2 border-blue-500 text-blue-500">ถ่ายภาพ</button>
+                                <button type="button" id="tab-btn-upload" onclick="switchImageInput('upload')" class="flex-1 py-2 text-center font-medium border-b-2 border-transparent text-gray-400">อัปโหลด</button>
+                            </div>
+
+                            <!-- Camera Input -->
+                            <div id="input-camera" class="space-y-4">
+                                <div class="video-container bg-gray-700 rounded-lg overflow-hidden">
+                                    <video id="capture-video" class="w-full h-auto" autoplay playsinline></video>
+                                    <canvas id="capture-canvas" class="hidden"></canvas>
+                                </div>
+                                <button type="button" onclick="capturePhoto()" class="w-full bg-indigo-600 text-white px-4 py-3 rounded-lg hover:bg-indigo-700 flex items-center justify-center gap-2">
+                                    <i data-lucide="camera"></i>
+                                    <span>ถ่ายภาพ</span>
+                                </button>
+                            </div>
+
+                            <!-- Upload Input -->
+                            <div id="input-upload" class="hidden space-y-4">
+                                <div class="video-container bg-gray-700 rounded-lg overflow-hidden flex items-center justify-center min-h-[200px]">
+                                    <img id="image-preview" src="" class="w-full h-full object-cover hidden">
+                                    <div id="upload-placeholder" class="text-gray-400 text-center p-4">
+                                        <i data-lucide="upload" class="w-12 h-12 mx-auto mb-2"></i>
+                                        <p>ยังไม่มีรูปภาพ</p>
+                                    </div>
+                                </div>
+                                <input type="file" id="image-upload-input" accept="image/*" class="hidden">
+                                <button type="button" onclick="document.getElementById('image-upload-input').click()" class="w-full bg-indigo-600 text-white px-4 py-3 rounded-lg hover:bg-indigo-700 flex items-center justify-center gap-2">
+                                    <i data-lucide="upload"></i>
+                                    <span>เลือกไฟล์รูปภาพ</span>
+                                </button>
+                            </div>
+
+                            <input type="hidden" id="student-image-data">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex justify-end gap-3 pt-4 border-t border-gray-700">
+                    <button type="button" class="inline-flex items-center px-4 py-2 border border-gray-600 text-sm font-medium rounded-md shadow-sm text-gray-100 bg-gray-700 hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500" onclick="closeStudentModal()"><i data-lucide="x" class="w-5 h-5 mr-2"></i> ยกเลิก</button>
+                    <button type="submit" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"><i data-lucide="save" class="w-5 h-5 mr-2"></i> บันทึก</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        lucide.createIcons();
+
+        let gasWebAppUrl = localStorage.getItem('gasWebAppUrl') || '';
+        let students = [];
+        let attendance = [];
+        let pieChart = null;
+        let barChart = null;
+        let editingRowIndex = null;
+        let captureStream = null;
+        const ADMIN_PASSWORD_DASHBOARD = 'admin123';
+        const ADMIN_PASSWORD_MANAGE = 'admin123';
+
+        window.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('gasUrl').value = gasWebAppUrl;
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('dashboard-date').value = today;
+            document.getElementById('attendanceDate').value = today;
+            
+            if (gasWebAppUrl) {
+                // Initial load will be handled by password sections
+            } else {
+                switchTab('settings');
+                showAlert('settingsAlert', 'กรุณาตั้งค่า Google Apps Script URL ก่อนใช้งาน', 'info');
+            }
+            toggleTheme(true);
+            switchTab('dashboard');
+        });
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.add('hidden'));
+            document.getElementById('content-' + tabId).classList.remove('hidden');
+
+            document.querySelectorAll('nav button').forEach(btn => {
+                btn.classList.remove('bg-blue-600', 'text-white');
+                btn.classList.add('text-gray-300', 'hover:bg-gray-600');
+            });
+            const activeTabButton = document.getElementById('tab-' + tabId);
+            activeTabButton.classList.add('bg-blue-600', 'text-white');
+            activeTabButton.classList.remove('text-gray-300', 'hover:bg-gray-600');
+            lucide.createIcons();
+
+            if (tabId === 'dashboard' && document.getElementById('dashboard-content').classList.contains('hidden')) {
+                // Do nothing, password section will handle loading
+            } else if (tabId === 'dashboard') {
+                loadStudentData();
+                loadAttendanceData();
+            } else if (tabId === 'manage' && document.getElementById('manage-content').classList.contains('hidden')) {
+                // Do nothing, password section will handle loading
+            } else if (tabId === 'manage') {
+                loadStudentData();
+                loadAttendanceData();
+            }
+        }
+
+        // Theme Management
+        function toggleTheme(initialLoad = false) {
+            const html = document.documentElement;
+            let isDarkMode = html.classList.contains('dark');
+
+            if (initialLoad) {
+                isDarkMode = localStorage.getItem('theme') === 'dark' || 
+                            (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches);
+                if (isDarkMode) html.classList.add('dark');
+                else html.classList.remove('dark');
+            } else {
+                if (isDarkMode) {
+                    html.classList.remove('dark');
+                    localStorage.setItem('theme', 'light');
+                } else {
+                    html.classList.add('dark');
+                    localStorage.setItem('theme', 'dark');
+                }
+            }
+            updateThemeIcons();
+        }
+
+        function updateThemeIcons() {
+            const themeIconSun = document.getElementById('theme-icon-sun');
+            const themeIconMoon = document.getElementById('theme-icon-moon');
+            const isDark = document.documentElement.classList.contains('dark');
+            
+            if (isDark) {
+                themeIconMoon.classList.add('hidden');
+                themeIconSun.classList.remove('hidden');
+            } else {
+                themeIconSun.classList.add('hidden');
+                themeIconMoon.classList.remove('hidden');
+            }
+            lucide.createIcons();
+        }
+
+        // Password protection
+        function verifyDashboardPassword() {
+            const passwordInput = document.getElementById('dashboard-password').value;
+            if (passwordInput === ADMIN_PASSWORD_DASHBOARD) {
+                document.getElementById('dashboard-password-section').classList.add('hidden');
+                document.getElementById('dashboard-content').classList.remove('hidden');
+                loadStudentData();
+                loadAttendanceData();
+            } else {
+                showAlert('alert', 'รหัสผ่านไม่ถูกต้องสำหรับ Dashboard', 'error');
+            }
+        }
+
+        function verifyManagePassword() {
+            const passwordInput = document.getElementById('manage-password').value;
+            if (passwordInput === ADMIN_PASSWORD_MANAGE) {
+                document.getElementById('manage-password-section').classList.add('hidden');
+                document.getElementById('manage-content').classList.remove('hidden');
+                loadStudentData();
+                loadAttendanceData();
+            } else {
+                showAlert('alert', 'รหัสผ่านไม่ถูกต้องสำหรับการจัดการข้อมูล', 'error');
+            }
+        }
+
+        // Student Data Management
+        async function loadStudentData() {
+            try {
+                const response = await apiCall({ action: 'getStudents' });
+                if (response.success) {
+                    students = response.data;
+                    renderStudentTable();
+                    updateDashboardStats();
+                    renderStudentRosterGrid();
+                }
+            } catch (error) {
+                console.error('Error loading students:', error);
+                showAlert('studentAlert', 'ไม่สามารถโหลดข้อมูลนักเรียนได้: ' + error.message, 'error');
+            }
+        }
+
+        function renderStudentTable() {
+            const tbody = document.getElementById('studentTableBody');
+            if (students.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-400">ไม่มีข้อมูลนักเรียน</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = students.map(student => `
+                <tr>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-100">${student.id}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-400">${student.name}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-400">${student.class}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${student.registered ? 'bg-green-500 text-white' : 'bg-yellow-500 text-white'}">
+                            <i data-lucide="${student.registered ? 'check-circle' : 'hourglass'}" class="w-4 h-4 mr-1"></i> ${student.registered ? 'ลงทะเบียนแล้ว' : 'ยังไม่ลงทะเบียน'}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-400">${student.registrationdate ? new Date(student.registrationdate).toLocaleDateString('th-TH') : '-'}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <button class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 mr-2" onclick="editStudent(${student.rowIndex})"><i data-lucide="edit" class="w-4 h-4 mr-1"></i> แก้ไข</button>
+                        <button class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500" onclick="deleteStudent(${student.rowIndex})"><i data-lucide="trash-2" class="w-4 h-4 mr-1"></i> ลบ</button>
+                    </td>
+                </tr>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        function renderStudentRosterGrid() {
+            const rosterGrid = document.getElementById('student-roster-grid');
+            const rosterLoading = document.getElementById('roster-loading');
+            rosterGrid.innerHTML = '';
+            
+            if (students.length === 0) {
+                rosterGrid.innerHTML = '<p class="text-gray-400 text-center col-span-full py-8">ไม่มีข้อมูลนักเรียน</p>';
+                return;
+            }
+
+            students.forEach(student => {
+                const studentCard = document.createElement('div');
+                studentCard.className = 'bg-gray-700 p-3 rounded-lg shadow-sm text-center';
+                studentCard.innerHTML = `
+                    <img src="${student.imagedata || 'https://via.placeholder.com/100x100/374151/6b7280?text=No+Image'}" alt="${student.name}" class="w-16 h-16 rounded-full mx-auto mb-2 object-cover border-2 border-gray-600">
+                    <p class="text-sm font-medium text-gray-100 truncate">${student.name}</p>
+                    <p class="text-xs text-gray-400">${student.id}</p>
+                    <p class="text-xs text-gray-400">${student.class}</p>
+                `;
+                rosterGrid.appendChild(studentCard);
+            });
+            rosterLoading.classList.add('hidden');
+        }
+
+        // Student Modal Functions
+        function openStudentModal(rowIndex = null) {
+            editingRowIndex = rowIndex;
+            const student = rowIndex ? students.find(s => s.rowIndex == rowIndex) : null;
+
+            document.getElementById('modalTitle').textContent = student ? 'แก้ไขข้อมูลนักเรียน' : 'เพิ่มนักเรียน';
+            document.getElementById('modalStudentId').value = student ? student.id : '';
+            document.getElementById('modalStudentName').value = student ? student.name : '';
+            document.getElementById('modalStudentClass').value = student ? student.class : '';
+            document.getElementById('student-image-data').value = student ? student.imagedata || '' : '';
+            
+            // Reset image preview
+            document.getElementById('image-preview').classList.add('hidden');
+            document.getElementById('image-preview').src = '';
+            document.getElementById('upload-placeholder').classList.remove('hidden');
+            
+            if (student && student.imagedata) {
+                document.getElementById('image-preview').src = student.imagedata;
+                document.getElementById('image-preview').classList.remove('hidden');
+                document.getElementById('upload-placeholder').classList.add('hidden');
+                switchImageInput('upload');
+            } else {
+                switchImageInput('camera');
+            }
+            
+            document.getElementById('studentModal').classList.remove('hidden');
+        }
+
+        function closeStudentModal() {
+            document.getElementById('studentModal').classList.add('hidden');
+            document.getElementById('studentForm').reset();
+            editingRowIndex = null;
+            stopCaptureVideo();
+        }
+
+        // Image Input Switching
+        function switchImageInput(type) {
+            const cameraTab = document.getElementById('tab-btn-camera');
+            const uploadTab = document.getElementById('tab-btn-upload');
+            const cameraInput = document.getElementById('input-camera');
+            const uploadInput = document.getElementById('input-upload');
+
+            if (type === 'camera') {
+                cameraTab.classList.add('border-blue-500', 'text-blue-500');
+                uploadTab.classList.remove('border-blue-500', 'text-blue-500');
+                cameraInput.classList.remove('hidden');
+                uploadInput.classList.add('hidden');
+                startCaptureVideo();
+            } else {
+                uploadTab.classList.add('border-blue-500', 'text-blue-500');
+                cameraTab.classList.remove('border-blue-500', 'text-blue-500');
+                uploadInput.classList.remove('hidden');
+                cameraInput.classList.add('hidden');
+                stopCaptureVideo();
+            }
+        }
+
+        // Camera Functions
+        async function startCaptureVideo() {
+            try {
+                if (captureStream) {
+                    stopCaptureVideo();
+                }
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        facingMode: 'user',
+                        width: { ideal: 640 },
+                        height: { ideal: 480 }
+                    } 
+                });
+                captureStream = stream;
+                document.getElementById('capture-video').srcObject = stream;
+            } catch (e) {
+                console.error("Could not start video for capture", e);
+                showAlert('studentAlert', 'ไม่สามารถเปิดกล้องสำหรับถ่ายภาพได้', 'error');
+            }
+        }
+
+        function stopCaptureVideo() { 
+            if (captureStream) { 
+                captureStream.getTracks().forEach(track => track.stop()); 
+                captureStream = null; 
+            } 
+        }
+
+        function capturePhoto() {
+            const videoEl = document.getElementById('capture-video');
+            if (!videoEl.srcObject) {
+                showAlert('studentAlert', 'กรุณาเปิดกล้องก่อนถ่ายภาพ', 'error');
+                return;
+            }
+
+            const canvas = document.getElementById('capture-canvas');
+            canvas.width = videoEl.videoWidth;
+            canvas.height = videoEl.videoHeight;
+            const context = canvas.getContext('2d');
+            context.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+            
+            const imageData = canvas.toDataURL('image/jpeg', 0.8);
+            document.getElementById('student-image-data').value = imageData;
+            
+            // Show preview
+            document.getElementById('image-preview').src = imageData;
+            document.getElementById('image-preview').classList.remove('hidden');
+            document.getElementById('upload-placeholder').classList.add('hidden');
+            
+            showAlert('studentAlert', 'ถ่ายภาพเรียบร้อยแล้ว', 'success');
+        }
+
+        // Image Upload Handling
+        document.getElementById('image-upload-input').addEventListener('change', handleImageUpload);
+
+        function handleImageUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            if (!file.type.startsWith('image/')) {
+                showAlert('studentAlert', 'กรุณาเลือกไฟล์รูปภาพเท่านั้น', 'error');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    const MAX_WIDTH = 500;
+                    const scaleSize = MAX_WIDTH / img.width;
+                    canvas.width = MAX_WIDTH;
+                    canvas.height = img.height * scaleSize;
+                    
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    
+                    const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+                    document.getElementById('student-image-data').value = dataUrl;
+                    
+                    // Show preview
+                    document.getElementById('image-preview').src = dataUrl;
+                    document.getElementById('image-preview').classList.remove('hidden');
+                    document.getElementById('upload-placeholder').classList.add('hidden');
+                    
+                    showAlert('studentAlert', 'อัปโหลดรูปภาพเรียบร้อยแล้ว', 'success');
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // Student Form Submission
+        document.getElementById('studentForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const studentData = {
+                id: document.getElementById('modalStudentId').value,
+                name: document.getElementById('modalStudentName').value,
+                class: document.getElementById('modalStudentClass').value,
+                imageData: document.getElementById('student-image-data').value
+            };
+            
+            if (!studentData.imageData) {
+                showAlert('studentAlert', 'กรุณาถ่ายภาพหรืออัปโหลดรูปภาพก่อนบันทึก', 'error');
+                return;
+            }
+            
+            const action = editingRowIndex ? 'updateStudent' : 'addStudent';
+            if (editingRowIndex) {
+                studentData.rowIndex = editingRowIndex;
+            }
+            
+            try {
+                const response = await apiCall({ action, data: studentData });
+                if (response.success) {
+                    showAlert('studentAlert', 'บันทึกข้อมูลสำเร็จ', 'success');
+                    closeStudentModal();
+                    loadStudentData();
+                } else {
+                    showAlert('studentAlert', 'เกิดข้อผิดพลาด: ' + response.error, 'error');
+                }
+            } catch (error) {
+                showAlert('studentAlert', 'เกิดข้อผิดพลาดในการเชื่อมต่อ: ' + error.message, 'error');
+            }
+        });
+
+        function editStudent(rowIndex) {
+            const student = students.find(s => s.rowIndex == rowIndex);
+            if (student) {
+                openStudentModal(rowIndex);
+            }
+        }
+
+        async function deleteStudent(rowIndex) {
+            if (!confirm('คุณแน่ใจหรือไม่ว่าต้องการลบข้อมูลนักเรียนคนนี้?')) return;
+            
+            try {
+                const response = await apiCall({ action: 'deleteStudent', data: { rowIndex } });
+                if (response.success) {
+                    showAlert('studentAlert', 'ลบข้อมูลสำเร็จ', 'success');
+                    loadStudentData();
+                } else {
+                    showAlert('studentAlert', 'เกิดข้อผิดพลาด: ' + response.error, 'error');
+                }
+            } catch (error) {
+                showAlert('studentAlert', 'เกิดข้อผิดพลาดในการเชื่อมต่อ: ' + error.message, 'error');
+            }
+        }
+
+        // Attendance Data Management
+        async function loadAttendanceData() {
+            try {
+                const response = await apiCall({ action: 'getAttendance' });
+                if (response.success) {
+                    attendance = response.data.map(rec => ({
+                        ...rec,
+                        timestamp: new Date(rec.timestamp)
+                    }));
+                    renderAttendanceTable();
+                    renderDashboardCharts();
+                }
+            } catch (error) {
+                console.error('Error loading attendance:', error);
+            }
+        }
+
+        function renderAttendanceTable() {
+            const selectedDate = document.getElementById('attendanceDate').value;
+            const selectedClass = document.getElementById('attendanceClass').value;
+            
+            let filtered = attendance;
+            
+            if (selectedDate) {
+                const filterDate = new Date(selectedDate);
+                filterDate.setHours(0, 0, 0, 0);
+                filtered = filtered.filter(rec => {
+                    const recDate = new Date(rec.timestamp);
+                    recDate.setHours(0, 0, 0, 0);
+                    return recDate.getTime() === filterDate.getTime();
+                });
+            }
+            
+            if (selectedClass) {
+                filtered = filtered.filter(rec => rec.class === selectedClass);
+            }
+            
+            const tbody = document.getElementById('attendanceTableBody');
+            if (filtered.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-400">ไม่มีข้อมูลการเช็คชื่อ</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = filtered.map(record => `
+                <tr>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-100">${record.id}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-400">${record.name}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-400">${record.class}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-400">${record.timestamp.toLocaleDateString('th-TH')}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-400">${record.timestamp.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${record.status === 'มาเรียน' ? 'bg-green-500 text-white' : record.status === 'มาสาย' ? 'bg-yellow-500 text-white' : 'bg-red-500 text-white'}">
+                            <i data-lucide="${record.status === 'มาเรียน' ? 'check' : record.status === 'มาสาย' ? 'clock' : 'x-circle'}" class="w-4 h-4 mr-1"></i> ${record.status}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-400">${record.location || '-'}</td>
+                </tr>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        // Dashboard Stats and Charts
+        function updateDashboardStats() {
+            // This function can be expanded to show additional stats
+        }
+
+        function renderDashboardCharts() {
+            const selectedDate = new Date(document.getElementById('dashboard-date').value);
+            selectedDate.setHours(0, 0, 0, 0);
+            
+            const attendanceToday = attendance.filter(rec => {
+                const recDate = new Date(rec.timestamp);
+                recDate.setHours(0, 0, 0, 0);
+                return recDate.getTime() === selectedDate.getTime();
+            });
+            
+            const lateTime = new Date(selectedDate);
+            lateTime.setHours(8, 30, 0);
+            
+            let onTimeCount = 0, lateCount = 0;
+            const presentStudents = new Set();
+            
+            attendanceToday.forEach(rec => {
+                if (rec.status === 'มาเรียน' || rec.status === 'มาสาย') {
+                    if (!presentStudents.has(rec.id)) {
+                        if (rec.timestamp > lateTime || rec.status === 'มาสาย') {
+                            lateCount++;
+                        } else {
+                            onTimeCount++;
+                        }
+                    }
+                    presentStudents.add(rec.id);
+                }
+            });
+            
+            const absentCount = students.length - presentStudents.size;
+            
+            document.getElementById('stat-present').textContent = onTimeCount + lateCount;
+            document.getElementById('stat-late').textContent = lateCount;
+            document.getElementById('stat-absent').textContent = absentCount;
+            
+            renderPieChart(onTimeCount, lateCount, absentCount);
+            renderBarChart(attendanceToday);
+        }
+
+        function renderPieChart(onTime, late, absent) {
+            const ctx = document.getElementById('attendance-pie-chart').getContext('2d');
+            if (pieChart) pieChart.destroy();
+            
+            pieChart = new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: ['มาตรงเวลา', 'มาสาย', 'ขาด'],
+                    datasets: [{
+                        data: [onTime, late, absent],
+                        backgroundColor: ['#34D399', '#FBBF24', '#F87171']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: '#d1d5db'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderBarChart(attendanceData) {
+            const hourlyCounts = Array(24).fill(0);
+            attendanceData.forEach(rec => {
+                hourlyCounts[rec.timestamp.getHours()]++;
+            });
+            
+            const ctx = document.getElementById('attendance-bar-chart').getContext('2d');
+            if (barChart) barChart.destroy();
+            
+            barChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: Array.from({length: 12}, (_, i) => `${i+6}:00`),
+                    datasets: [{
+                        label: 'จำนวนเช็คชื่อ',
+                        data: hourlyCounts.slice(6, 18),
+                        backgroundColor: '#60A5FA'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: { stepSize: 1, color: '#d1d5db' },
+                            grid: { color: 'rgba(255,255,255,0.1)' }
+                        },
+                        x: {
+                            ticks: { color: '#d1d5db' },
+                            grid: { color: 'rgba(255,255,255,0.1)' }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            labels: { color: '#d1d5db' }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Settings Functions
+        function saveGasUrl() {
+            const url = document.getElementById('gasUrl').value.trim();
+            if (!url) {
+                showAlert('settingsAlert', 'กรุณากรอก URL', 'error');
+                return;
+            }
+            localStorage.setItem('gasWebAppUrl', url);
+            gasWebAppUrl = url;
+            showAlert('settingsAlert', 'บันทึก URL สำเร็จ', 'success');
+        }
+
+        async function clearAttendanceData() {
+            if (!confirm('คุณแน่ใจหรือไม่ว่าต้องการลบข้อมูลการเช็คชื่อทั้งหมด?')) return;
+            
+            try {
+                const response = await apiCall({ action: 'clearAttendance' });
+                if (response.success) {
+                    showAlert('settingsAlert', 'ลบข้อมูลสำเร็จ', 'success');
+                    loadAttendanceData();
+                } else {
+                    showAlert('settingsAlert', 'เกิดข้อผิดพลาด: ' + response.error, 'error');
+                }
+            } catch (error) {
+                showAlert('settingsAlert', 'เกิดข้อผิดพลาดในการเชื่อมต่อ: ' + error.message, 'error');
+            }
+        }
+
+        async function resetRegistrations() {
+            if (!confirm('คุณแน่ใจหรือไม่ว่าต้องการรีเซ็ตสถานะการลงทะเบียนของนักเรียนทั้งหมด?')) return;
+            
+            try {
+                const response = await apiCall({ action: 'resetRegistrations' });
+                if (response.success) {
+                    showAlert('settingsAlert', 'รีเซ็ตการลงทะเบียนสำเร็จ', 'success');
+                    loadStudentData();
+                } else {
+                    showAlert('settingsAlert', 'เกิดข้อผิดพลาด: ' + response.error, 'error');
+                }
+            } catch (error) {
+                showAlert('settingsAlert', 'เกิดข้อผิดพลาดในการเชื่อมต่อ: ' + error.message, 'error');
+            }
+        }
+
+        // Utility Functions
+        function showAlert(elementId, message, type) {
+            const alertDiv = document.getElementById(elementId);
+            alertDiv.textContent = message;
+            alertDiv.classList.remove('hidden', 'bg-green-500', 'bg-red-500', 'bg-blue-500', 'bg-yellow-500');
+            
+            if (type === 'success') alertDiv.classList.add('bg-green-500');
+            else if (type === 'error') alertDiv.classList.add('bg-red-500');
+            else if (type === 'info') alertDiv.classList.add('bg-blue-500');
+            else if (type === 'warning') alertDiv.classList.add('bg-yellow-500');
+            
+            alertDiv.classList.remove('hidden');
+            
+            setTimeout(() => {
+                alertDiv.classList.add('hidden');
+            }, 5000);
+        }
+
+        async function apiCall(payload) {
+            if (!gasWebAppUrl) {
+                throw new Error('GAS URL not configured');
+            }
+            
+            try {
+                const response = await fetch(gasWebAppUrl, {
+                    method: 'POST',
+                    mode: 'cors',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify(payload)
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                return await response.json();
+            } catch (error) {
+                console.error('API Call Error:', error);
+                throw error;
+            }
+        }
+
+        // Cleanup
+        window.addEventListener('beforeunload', () => {
+            stopCaptureVideo();
+        });
+    </script>
+</body>
+</html>
